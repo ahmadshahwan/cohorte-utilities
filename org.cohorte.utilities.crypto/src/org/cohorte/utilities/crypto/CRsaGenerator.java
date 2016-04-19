@@ -7,6 +7,7 @@ import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 import java.security.NoSuchAlgorithmException;
 import java.security.PrivateKey;
+import java.security.PublicKey;
 import java.security.SecureRandom;
 import java.security.cert.X509Certificate;
 import java.util.Date;
@@ -15,18 +16,14 @@ import org.psem2m.utilities.CXBytesUtils;
 import org.psem2m.utilities.CXTimer;
 import org.psem2m.utilities.logging.CActivityLoggerNull;
 import org.psem2m.utilities.logging.IActivityLogger;
-
-import sun.security.x509.AlgorithmId;
-import sun.security.x509.CertificateAlgorithmId;
-import sun.security.x509.CertificateIssuerName;
-import sun.security.x509.CertificateSerialNumber;
-import sun.security.x509.CertificateSubjectName;
-import sun.security.x509.CertificateValidity;
-import sun.security.x509.CertificateVersion;
-import sun.security.x509.CertificateX509Key;
-import sun.security.x509.X500Name;
-import sun.security.x509.X509CertImpl;
-import sun.security.x509.X509CertInfo;
+import org.bouncycastle.asn1.x500.X500Name;
+import org.bouncycastle.cert.X509CertificateHolder;
+import org.bouncycastle.cert.X509v1CertificateBuilder;
+import org.bouncycastle.cert.jcajce.JcaX509CertificateConverter;
+import org.bouncycastle.cert.jcajce.JcaX509v1CertificateBuilder;
+import org.bouncycastle.operator.ContentSigner;
+import org.bouncycastle.operator.OperatorCreationException;
+import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
 
 /**
  * Generates Certificate, KeyPair or RsaKeyContext
@@ -172,61 +169,42 @@ public class CRsaGenerator {
 		}
 
 		final PrivateKey privkey = aKeyPair.getPrivate();
+		final PublicKey publkey = aKeyPair.getPublic();
 
-		final X509CertInfo wX509CertInfo = new X509CertInfo();
+		ContentSigner sigGen;
+		try {
+			sigGen = new JcaContentSignerBuilder(ALGORITHM_SIGN)
+				.setProvider("BC")
+				.build(privkey);
+		} catch (OperatorCreationException e) {
+			pLogger.logSevere(
+					this,
+					"generateCertificate",
+					"OperatorCreationException:\n [%s]",
+					e);
+			/**
+			 * Not to change method signature for backward compatibility.
+			 * Throw unchecked exception.
+			 */
+			throw new RuntimeException(e);
+		}
 
 		final Date from = new Date();
 		final Date to = new Date(from.getTime() + aNbDays * NB_MILLI_IN_DAY);
-		final CertificateValidity interval = new CertificateValidity(from, to);
 		final BigInteger wSerialNumber = new BigInteger(64, new SecureRandom());
 		final X500Name aOwner = new X500Name(aDistinguishedName);
 
-		wX509CertInfo.set(X509CertInfo.VALIDITY, interval);
-		wX509CertInfo.set(X509CertInfo.SERIAL_NUMBER,
-				new CertificateSerialNumber(wSerialNumber));
-
-		// Change of behaviour in JDK8:
-		// https://bugs.openjdk.java.net/browse/JDK-8040820
-		// https://bugs.openjdk.java.net/browse/JDK-7198416
-		final String version = System.getProperty("java.version");
-		if (version == null || version.matches("^(1\\.)?[7].*")) {
-			// Java 7 code. To remove with Java 8 migration
-			wX509CertInfo.set(X509CertInfo.SUBJECT, new CertificateSubjectName(
-					aOwner));
-			wX509CertInfo.set(X509CertInfo.ISSUER, new CertificateIssuerName(
-					aOwner));
-		} else {
-			// Java 8 and later code
-			wX509CertInfo.set(X509CertInfo.SUBJECT, aOwner);
-			wX509CertInfo.set(X509CertInfo.ISSUER, aOwner);
-		}
-
-		wX509CertInfo.set(X509CertInfo.KEY,
-				new CertificateX509Key(aKeyPair.getPublic()));
-		wX509CertInfo.set(X509CertInfo.VERSION, new CertificateVersion(
-				CertificateVersion.V3));
-		AlgorithmId wAlgorithmId = new AlgorithmId(
-				AlgorithmId.md5WithRSAEncryption_oid);
-		wX509CertInfo.set(X509CertInfo.ALGORITHM_ID,
-				new CertificateAlgorithmId(wAlgorithmId));
-
-		if (pLogger.isLogDebugOn()) {
-			pLogger.logDebug(this, "generateCertificate", "X509CertInfo=[%s]",
-					wX509CertInfo);
-		}
-
-		// Sign the cert to identify the algorithm that's used.
-		X509CertImpl wCertificate = new X509CertImpl(wX509CertInfo);
-		wCertificate.sign(privkey, aX509SignAlgorithm);
-
-		// Update the algorith, and resign.
-		wAlgorithmId = (AlgorithmId) wCertificate.get(X509CertImpl.SIG_ALG);
-		wX509CertInfo.set(CertificateAlgorithmId.NAME + "."
-				+ CertificateAlgorithmId.ALGORITHM, wAlgorithmId);
-
-		wCertificate = new X509CertImpl(wX509CertInfo);
-		wCertificate.sign(privkey, aX509SignAlgorithm);
-		return wCertificate;
+		X509v1CertificateBuilder v1CertGen = new JcaX509v1CertificateBuilder(
+				aOwner,
+				wSerialNumber,
+				from, to,
+				aOwner,
+				publkey);
+		
+		X509CertificateHolder certHolder = v1CertGen.build(sigGen); 
+		
+		return new JcaX509CertificateConverter().setProvider( "BC" )
+				  .getCertificate(certHolder);
 	}
 
 	/**
