@@ -152,9 +152,8 @@ public class CRsaGenerator {
 	 *            how many days from now the Certificate is valid for
 	 * @param aX509SignAlgorithm
 	 *            the signing algorithm, eg "SHA1withRSA"
-	 * @see http
-	 *      ://stackoverflow.com/questions/1615871/creating-an-x509-certificate
-	 *      -in-java-without-bouncycastle
+	 * @see
+	 * "http://www.bouncycastle.org/wiki/display/JA1/BC+Version+2+APIs"
 	 */
 	public X509Certificate generateCertificate(String aDistinguishedName,
 			KeyPair aKeyPair, int aNbDays, String aX509SignAlgorithm)
