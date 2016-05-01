@@ -9,6 +9,7 @@ import java.security.NoSuchAlgorithmException;
 import java.security.PrivateKey;
 import java.security.PublicKey;
 import java.security.SecureRandom;
+import java.security.Security;
 import java.security.cert.X509Certificate;
 import java.util.Date;
 
@@ -21,6 +22,7 @@ import org.bouncycastle.cert.X509CertificateHolder;
 import org.bouncycastle.cert.X509v1CertificateBuilder;
 import org.bouncycastle.cert.jcajce.JcaX509CertificateConverter;
 import org.bouncycastle.cert.jcajce.JcaX509v1CertificateBuilder;
+import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.operator.ContentSigner;
 import org.bouncycastle.operator.OperatorCreationException;
 import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
@@ -44,6 +46,13 @@ public class CRsaGenerator {
 
 	/** certificate duration */
 	public static int NB_DAYS_IN_YEAR = 365;
+	
+	/**
+	 * Add Bouncy Castle security provider, once and for all.
+	 */
+	static {
+		Security.addProvider(new BouncyCastleProvider());
+	}
 
 	/** Nb milliseconds in a day */
 	public static final long NB_MILLI_IN_DAY = 86400000l;
@@ -173,7 +182,7 @@ public class CRsaGenerator {
 		ContentSigner sigGen;
 		try {
 			sigGen = new JcaContentSignerBuilder(ALGORITHM_SIGN)
-				.setProvider("BC")
+				.setProvider(BouncyCastleProvider.PROVIDER_NAME)
 				.build(privkey);
 		} catch (OperatorCreationException e) {
 			pLogger.logSevere(

@@ -8,6 +8,7 @@ Bundle-RequiredExecutionEnvironment: JavaSE-1.7
 Import-Package: org.bouncycastle.asn1.x500;version="1.54.0",
  org.bouncycastle.cert;version="1.54.0",
  org.bouncycastle.cert.jcajce;version="1.54.0",
+ org.bouncycastle.jce.provider;version="1.54.0",
  org.bouncycastle.operator;version="1.54.0",
  org.bouncycastle.operator.jcajce;version="1.54.0",
  org.cohorte.utilities.encode,
